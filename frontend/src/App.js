@@ -1,0 +1,153 @@
+import React, { useState, useEffect, useRef } from 'react';
+
+const supportedLanguages = {
+  'ja': 'Japanese',
+  'ko': 'Korean',
+  'zh': 'Chinese (Traditional)',
+  'es': 'Spanish'
+};
+
+const TranscriptionApp = () => {
+  const [transcriptions, setTranscriptions] = useState([]);
+  const [status, setStatus] = useState('Disconnected');
+  const [error, setError] = useState(null);
+  const [debugLogs, setDebugLogs] = useState([]);
+  const [selectedLanguage, setSelectedLanguage] = useState('es');
+
+  const wsRef = useRef(null);
+  const originalRef = useRef(null);
+  const translatedRef = useRef(null);
+
+  useEffect(() => {
+    connectWebSocket();
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (originalRef.current) {
+      originalRef.current.scrollTop = originalRef.current.scrollHeight;
+    }
+    if (translatedRef.current) {
+      translatedRef.current.scrollTop = translatedRef.current.scrollHeight;
+    }
+  }, [transcriptions]);
+
+  const connectWebSocket = () => {
+    wsRef.current = new WebSocket('ws://localhost:3001');
+
+    wsRef.current.onopen = () => {
+      setStatus('Connected');
+      addDebugLog('WebSocket connected');
+    };
+
+    wsRef.current.onclose = () => {
+      setStatus('Disconnected');
+      addDebugLog('WebSocket disconnected');
+    };
+
+    wsRef.current.onerror = (error) => {
+      setError('WebSocket error occurred');
+      addDebugLog(`WebSocket error: ${error.message}`);
+    };
+
+    wsRef.current.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'transcript') {
+        setTranscriptions(prev => [...prev, message.data]);
+        addDebugLog(`Received transcript: ${message.data.original}`);
+        addDebugLog(`Translated text (${message.data.language}): ${message.data.translated}`);
+      } else if (message.type === 'debug') {
+        addDebugLog(`Server debug: ${message.data}`);
+      }
+    };
+  };
+
+  const handleReconnect = () => {
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+    connectWebSocket();
+  };
+
+  const addDebugLog = (log) => {
+    setDebugLogs(prev => [...prev, log]);
+  };
+
+  const handleLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setSelectedLanguage(newLanguage);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'setLanguage', language: newLanguage }));
+      addDebugLog(`Language changed to ${supportedLanguages[newLanguage]}`);
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold mb-4">Real-time Transcription and Translation</h1>
+      <div className="mb-4 flex items-center">
+        <span className="mr-4">Status: {status}</span>
+        {status === 'Disconnected' && (
+          <button 
+            onClick={handleReconnect} 
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Reconnect
+          </button>
+        )}
+        <select 
+          value={selectedLanguage} 
+          onChange={handleLanguageChange}
+          className="ml-auto px-4 py-2 text-black border rounded"
+        >
+          {Object.entries(supportedLanguages).map(([code, name]) => (
+            <option key={code} value={code}>{name}</option>
+          ))}
+        </select>
+      </div>
+      {error && (
+        <div className="mb-4 text-red-500">
+          Error: {error}
+        </div>
+      )}
+      <div className="flex space-x-4 mb-4">
+        <div className="flex-1 border p-4 h-64 overflow-y-auto" ref={originalRef}>
+          <h2 className="text-xl font-semibold mb-2">Original Transcription</h2>
+          {transcriptions.length > 0 ? (
+            transcriptions.map((t, index) => (
+              <div key={index} className="mb-2">
+                <p>{t.original || 'N/A'}</p>
+              </div>
+            ))
+          ) : (
+            'Waiting for transcription...'
+          )}
+        </div>
+        <div className="flex-1 border p-4 h-64 overflow-y-auto" ref={translatedRef}>
+          <h2 className="text-xl font-semibold mb-2">Translation ({supportedLanguages[selectedLanguage]})</h2>
+          {transcriptions.length > 0 ? (
+            transcriptions.map((t, index) => (
+              <div key={index} className="mb-2">
+                <p>{t.translated || 'N/A'}</p>
+              </div>
+            ))
+          ) : (
+            'Waiting for translation...'
+          )}
+        </div>
+      </div>
+      <div className="border p-4 h-64 overflow-y-auto">
+        <h2 className="text-xl font-semibold mb-2">Debug Logs</h2>
+        {debugLogs.map((log, index) => (
+          <div key={index} className="text-sm">{log}</div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default TranscriptionApp;
