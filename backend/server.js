@@ -33,10 +33,10 @@ const authKey = process.env.DEEPL_AUTH_KEY; // Add this to your .env file
 const translator = new deepl.Translator(authKey);
 
 const supportedLanguages = {
-  'es': 'Spanish',
   'ja': 'Japanese',
   'ko': 'Korean',
-  'zh': 'Chinese (Traditional)'
+  'zh': 'Chinese (Traditional)',
+  'es': 'Spanish'
 };
 
 wss.on('connection', (ws, req) => {

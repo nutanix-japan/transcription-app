@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 const supportedLanguages = {
   'ja': 'Japanese',
   'ko': 'Korean',
-  'zh': 'Chinese (Traditional)',
+  'ZH-HANT': 'Chinese (Traditional)',
   'es': 'Spanish'
 };
 
@@ -13,6 +13,8 @@ const TranscriptionApp = () => {
   const [error, setError] = useState(null);
   const [debugLogs, setDebugLogs] = useState([]);
   const [selectedLanguage, setSelectedLanguage] = useState('es');
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [selectedDevice, setSelectedDevice] = useState('');
 
   const wsRef = useRef(null);
   const originalRef = useRef(null);
@@ -20,6 +22,7 @@ const TranscriptionApp = () => {
 
   useEffect(() => {
     connectWebSocket();
+    getAudioDevices();
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -35,6 +38,29 @@ const TranscriptionApp = () => {
       translatedRef.current.scrollTop = translatedRef.current.scrollHeight;
     }
   }, [transcriptions]);
+
+  const getAudioDevices = async () => {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const audioInputDevices = devices.filter(device => device.kind === 'audioinput');
+      setAudioDevices(audioInputDevices);
+      if (audioInputDevices.length > 0) {
+        setSelectedDevice(audioInputDevices[0].deviceId);
+      }
+    } catch (error) {
+      setError('Error getting audio devices');
+      addDebugLog(`Error getting audio devices: ${error.message}`);
+    }
+  };
+
+  const handleDeviceChange = (e) => {
+    const newDevice = e.target.value;
+    setSelectedDevice(newDevice);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'setAudioDevice', deviceId: newDevice }));
+      addDebugLog(`Audio device changed to ${newDevice}`);
+    }
+  };
 
   const connectWebSocket = () => {
     wsRef.current = new WebSocket('ws://localhost:3001');
@@ -106,6 +132,15 @@ const TranscriptionApp = () => {
         >
           {Object.entries(supportedLanguages).map(([code, name]) => (
             <option key={code} value={code}>{name}</option>
+          ))}
+        </select>
+        <select 
+          value={selectedDevice} 
+          onChange={handleDeviceChange}
+          className="ml-4 px-4 py-2 text-black border rounded"
+        >
+          {audioDevices.map((device) => (
+            <option key={device.deviceId} value={device.deviceId}>{device.label || `Microphone ${device.deviceId}`}</option>
           ))}
         </select>
       </div>
