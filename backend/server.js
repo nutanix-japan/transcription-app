@@ -35,7 +35,7 @@ const translator = new deepl.Translator(authKey);
 const supportedLanguages = {
   'ja': 'Japanese',
   'ko': 'Korean',
-  'zh': 'Chinese (Traditional)',
+  'ZH-HANT': 'Chinese (Traditional)',
   'es': 'Spanish'
 };
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import UserTranscriptionView from './UserTranscriptionView';
 
 const supportedLanguages = {
-  'ja': 'Japanese',
+  'ja': '日本語',
   'ko': 'Korean',
   'ZH-HANT': 'Chinese (Traditional)',
   'es': 'Spanish'
@@ -12,13 +14,14 @@ const TranscriptionApp = () => {
   const [status, setStatus] = useState('Disconnected');
   const [error, setError] = useState(null);
   const [debugLogs, setDebugLogs] = useState([]);
-  const [selectedLanguage, setSelectedLanguage] = useState('es');
+  const [selectedLanguage, setSelectedLanguage] = useState('ja');
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
 
   const wsRef = useRef(null);
   const originalRef = useRef(null);
   const translatedRef = useRef(null);
+  const debugLogsRef = useRef(null);
 
   useEffect(() => {
     connectWebSocket();
@@ -38,6 +41,19 @@ const TranscriptionApp = () => {
       translatedRef.current.scrollTop = translatedRef.current.scrollHeight;
     }
   }, [transcriptions]);
+
+  useEffect(() => {
+    if (debugLogsRef.current) {
+      debugLogsRef.current.scrollTop = debugLogsRef.current.scrollHeight;
+    }
+  }, [debugLogs]);
+
+  useEffect(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'setLanguage', language: selectedLanguage }));
+      addDebugLog(`Language changed to ${supportedLanguages[selectedLanguage]}`);
+    }
+  }, [selectedLanguage, wsRef]);
 
   const getAudioDevices = async () => {
     try {
@@ -150,8 +166,8 @@ const TranscriptionApp = () => {
         </div>
       )}
       <div className="flex space-x-4 mb-4">
-        <div className="flex-1 border p-4 h-64 overflow-y-auto" ref={originalRef}>
-          <h2 className="text-xl font-semibold mb-2">Original Transcription</h2>
+        <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={originalRef}>
+          <h2 className="text-xl font-semibold mb-2 rounded">Original Transcription</h2>
           {transcriptions.length > 0 ? (
             transcriptions.map((t, index) => (
               <div key={index} className="mb-2">
@@ -162,8 +178,8 @@ const TranscriptionApp = () => {
             'Waiting for transcription...'
           )}
         </div>
-        <div className="flex-1 border p-4 h-64 overflow-y-auto" ref={translatedRef}>
-          <h2 className="text-xl font-semibold mb-2">Translation ({supportedLanguages[selectedLanguage]})</h2>
+        <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={translatedRef}>
+          <h2 className="text-xl font-semibold mb-2 rounded">Translation ({supportedLanguages[selectedLanguage]})</h2>
           {transcriptions.length > 0 ? (
             transcriptions.map((t, index) => (
               <div key={index} className="mb-2">
@@ -175,8 +191,8 @@ const TranscriptionApp = () => {
           )}
         </div>
       </div>
-      <div className="border p-4 h-64 overflow-y-auto">
-        <h2 className="text-xl font-semibold mb-2">Debug Logs</h2>
+      <div className="border p-4 h-64 overflow-y-auto rounded" ref={debugLogsRef}>
+        <h2 className="text-xl font-semibold mb-2 rounded">Debug Logs</h2>
         {debugLogs.map((log, index) => (
           <div key={index} className="text-sm">{log}</div>
         ))}
@@ -185,4 +201,15 @@ const TranscriptionApp = () => {
   );
 };
 
-export default TranscriptionApp;
+const App = () => {
+  return (
+    <Router>
+      <Routes>
+        <Route path="/" element={<TranscriptionApp />} />
+        <Route path="/user" element={<UserTranscriptionView />} />
+      </Routes>
+    </Router>
+  );
+};
+
+export default App;
