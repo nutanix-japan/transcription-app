@@ -94,21 +94,33 @@ const TranscriptionApp = () => {
   };
 
   const connectWebSocket = () => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      addDebugLog('WebSocket already connected');
+      return;
+    }
+
     wsRef.current = new WebSocket('ws://localhost:3001');
 
     wsRef.current.onopen = () => {
       setStatus('Connected');
+      setError(null); // Clear any previous errors
       addDebugLog('WebSocket connected');
     };
 
-    wsRef.current.onclose = () => {
+    wsRef.current.onclose = (event) => {
       setStatus('Disconnected');
-      addDebugLog('WebSocket disconnected');
+      addDebugLog(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+      // Attempt to reconnect after a short delay
+      setTimeout(connectWebSocket, 5000);
     };
 
     wsRef.current.onerror = (error) => {
-      setError('WebSocket error occurred');
-      addDebugLog(`WebSocket error: ${error.message}`);
+      console.error('WebSocket error:', error);
+      addDebugLog(`WebSocket error: ${error.message || 'Unknown error'}`);
+      // Only set the error state if it's a critical error
+      if (wsRef.current.readyState === WebSocket.CLOSED) {
+        setError('WebSocket connection failed. Retrying...');
+      }
     };
 
     wsRef.current.onmessage = (event) => {
