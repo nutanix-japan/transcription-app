@@ -24,6 +24,52 @@ const TranscriptionApp = () => {
   const translatedRef = useRef(null);
   const debugLogsRef = useRef(null);
 
+  const addDebugLog = useCallback((log) => {
+    setDebugLogs(prev => [...prev, log]);
+  }, []);
+
+  const connectWebSocket = useCallback(() => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      addDebugLog('WebSocket already connected');
+      return;
+    }
+
+    wsRef.current = new WebSocket('ws://localhost:3001');
+
+    wsRef.current.onopen = () => {
+      setStatus('Connected');
+      setError(null); // Clear any previous errors
+      addDebugLog('WebSocket connected');
+    };
+
+    wsRef.current.onclose = (event) => {
+      setStatus('Disconnected');
+      addDebugLog(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+      // Attempt to reconnect after a short delay
+      setTimeout(connectWebSocket, 5000);
+    };
+
+    wsRef.current.onerror = (error) => {
+      console.error('WebSocket error:', error);
+      addDebugLog(`WebSocket error: ${error.message || 'Unknown error'}`);
+      // Only set the error state if it's a critical error
+      if (wsRef.current.readyState === WebSocket.CLOSED) {
+        setError('WebSocket connection failed. Retrying...');
+      }
+    };
+
+    wsRef.current.onmessage = (event) => {
+      const message = JSON.parse(event.data);
+      if (message.type === 'transcript') {
+        setTranscriptions(prev => [...prev, message.data]);
+        addDebugLog(`Received transcript: ${message.data.original}`);
+        addDebugLog(`Translated text (${message.data.language}): ${message.data.translated}`);
+      } else if (message.type === 'debug') {
+        addDebugLog(`Server debug: ${message.data}`);
+      }
+    };
+  }, [addDebugLog]);
+
   const activateMicrophone = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -31,22 +77,37 @@ const TranscriptionApp = () => {
       addDebugLog('Microphone activated');
       // Stop the stream immediately as we don't need to use it directly
       stream.getTracks().forEach(track => track.stop());
+      // Connect WebSocket
+      connectWebSocket();
     } catch (error) {
       setError('Error activating microphone');
       addDebugLog(`Error activating microphone: ${error.message}`);
     }
-  }, []);
+  }, [connectWebSocket, addDebugLog, setError]);
+
+  const toggleMicrophone = useCallback(() => {
+    if (isMicrophoneActive) {
+      // Disconnect WebSocket
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsMicrophoneActive(false);
+      addDebugLog('Microphone deactivated');
+    } else {
+      activateMicrophone();
+    }
+  }, [isMicrophoneActive, activateMicrophone, addDebugLog]);
 
   useEffect(() => {
-    connectWebSocket();
     getAudioDevices();
-    activateMicrophone();
+    // Remove the initial calls to connectWebSocket and activateMicrophone
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, [activateMicrophone]);
+  }, []);
 
   useEffect(() => {
     if (originalRef.current) {
@@ -93,57 +154,11 @@ const TranscriptionApp = () => {
     }
   };
 
-  const connectWebSocket = () => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      addDebugLog('WebSocket already connected');
-      return;
-    }
-
-    wsRef.current = new WebSocket('ws://localhost:3001');
-
-    wsRef.current.onopen = () => {
-      setStatus('Connected');
-      setError(null); // Clear any previous errors
-      addDebugLog('WebSocket connected');
-    };
-
-    wsRef.current.onclose = (event) => {
-      setStatus('Disconnected');
-      addDebugLog(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`);
-      // Attempt to reconnect after a short delay
-      setTimeout(connectWebSocket, 5000);
-    };
-
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      addDebugLog(`WebSocket error: ${error.message || 'Unknown error'}`);
-      // Only set the error state if it's a critical error
-      if (wsRef.current.readyState === WebSocket.CLOSED) {
-        setError('WebSocket connection failed. Retrying...');
-      }
-    };
-
-    wsRef.current.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'transcript') {
-        setTranscriptions(prev => [...prev, message.data]);
-        addDebugLog(`Received transcript: ${message.data.original}`);
-        addDebugLog(`Translated text (${message.data.language}): ${message.data.translated}`);
-      } else if (message.type === 'debug') {
-        addDebugLog(`Server debug: ${message.data}`);
-      }
-    };
-  };
-
   const handleReconnect = () => {
     if (wsRef.current) {
       wsRef.current.close();
     }
     connectWebSocket();
-  };
-
-  const addDebugLog = (log) => {
-    setDebugLogs(prev => [...prev, log]);
   };
 
   const handleLanguageChange = (e) => {
@@ -161,14 +176,12 @@ const TranscriptionApp = () => {
       <div className="mb-4 flex items-center">
         <span className="mr-4">Status: {status}</span>
         <span className="mr-4">Microphone: {isMicrophoneActive ? 'Active' : 'Inactive'}</span>
-        {status === 'Disconnected' && (
-          <button 
-            onClick={handleReconnect} 
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-          >
-            Reconnect
-          </button>
-        )}
+        <button 
+          onClick={toggleMicrophone} 
+          className={`px-4 py-2 ${isMicrophoneActive ? 'bg-red-500' : 'bg-green-500'} text-white rounded hover:opacity-80`}
+        >
+          {isMicrophoneActive ? 'Mute Microphone' : 'Unmute Microphone'}
+        </button>
         <select 
           value={selectedLanguage} 
           onChange={handleLanguageChange}

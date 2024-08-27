@@ -49,8 +49,11 @@ wss.on('connection', (ws, req) => {
   let totalAudioBytesSent = 0;
   let lastAudioSentTimestamp = 0;
   let currentLanguage = 'ja'; // Default to Japanese
+  let isReceivingAudio = false;
 
   const setupDeepgram = () => {
+    if (isDeepgramConnected) return;
+
     const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
     console.log("Creating Deepgram connection...");
@@ -177,6 +180,20 @@ wss.on('connection', (ws, req) => {
     if (data.type === 'setLanguage') {
       currentLanguage = data.language;
       sendDebugToClient(ws, `Language set to: ${supportedLanguages[currentLanguage]}`);
+    } else if (data.type === 'audioData') {
+      if (!isReceivingAudio) {
+        isReceivingAudio = true;
+        setupDeepgram();
+      }
+      if (isDeepgramConnected && deepgramConnection.getReadyState() === WebSocket.OPEN) {
+        deepgramConnection.send(data.audio);
+        totalAudioBytesSent += data.audio.length;
+        const now = Date.now();
+        if (now - lastAudioSentTimestamp >= 5000) {  // Log every 5 seconds
+          sendDebugToClient(ws, `Sent ${totalAudioBytesSent} total bytes of audio data to Deepgram`);
+          lastAudioSentTimestamp = now;
+        }
+      }
     }
   });
 
@@ -190,7 +207,9 @@ wss.on('connection', (ws, req) => {
     if (deepgramConnection) {
       deepgramConnection.finish();
       sendDebugToClient(ws, 'Deepgram connection finished');
+      isDeepgramConnected = false;
     }
+    isReceivingAudio = false;
   });
 
   ws.on('error', (error) => {
