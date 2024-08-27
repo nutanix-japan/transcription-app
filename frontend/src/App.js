@@ -29,85 +29,92 @@ const TranscriptionApp = () => {
   }, []);
 
   const connectWebSocket = useCallback(() => {
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      addDebugLog('WebSocket already connected');
-      return;
-    }
-
-    wsRef.current = new WebSocket('ws://localhost:3001');
-
-    wsRef.current.onopen = () => {
-      setStatus('Connected');
-      setError(null); // Clear any previous errors
-      addDebugLog('WebSocket connected');
-    };
-
-    wsRef.current.onclose = (event) => {
-      setStatus('Disconnected');
-      addDebugLog(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`);
-      // Attempt to reconnect after a short delay
-      setTimeout(connectWebSocket, 5000);
-    };
-
-    wsRef.current.onerror = (error) => {
-      console.error('WebSocket error:', error);
-      addDebugLog(`WebSocket error: ${error.message || 'Unknown error'}`);
-      // Only set the error state if it's a critical error
-      if (wsRef.current.readyState === WebSocket.CLOSED) {
-        setError('WebSocket connection failed. Retrying...');
+    return new Promise((resolve, reject) => {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        addDebugLog('WebSocket already connected');
+        resolve();
+        return;
       }
-    };
 
-    wsRef.current.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      if (message.type === 'transcript') {
-        setTranscriptions(prev => [...prev, message.data]);
-        addDebugLog(`Received transcript: ${message.data.original}`);
-        addDebugLog(`Translated text (${message.data.language}): ${message.data.translated}`);
-      } else if (message.type === 'debug') {
-        addDebugLog(`Server debug: ${message.data}`);
-      }
-    };
+      wsRef.current = new WebSocket('ws://localhost:3001');
+
+      wsRef.current.onopen = () => {
+        setStatus('Connected');
+        setError(null); // Clear any previous errors
+        addDebugLog('WebSocket connected');
+        resolve();
+      };
+
+      wsRef.current.onerror = (error) => {
+        console.error('WebSocket error:', error);
+        addDebugLog(`WebSocket error: ${error.message || 'Unknown error'}`);
+        reject(new Error('WebSocket connection failed'));
+      };
+
+      wsRef.current.onclose = (event) => {
+        setStatus('Disconnected');
+        addDebugLog(`WebSocket disconnected. Code: ${event.code}, Reason: ${event.reason}`);
+        // Remove automatic reconnection
+      };
+
+      wsRef.current.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.type === 'transcript') {
+          setTranscriptions(prev => [...prev, message.data]);
+          addDebugLog(`Received transcript: ${message.data.original}`);
+          addDebugLog(`Translated text (${message.data.language}): ${message.data.translated}`);
+        } else if (message.type === 'debug') {
+          addDebugLog(`Server debug: ${message.data}`);
+        }
+      };
+    });
   }, [addDebugLog]);
 
   const activateMicrophone = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setIsMicrophoneActive(true);
-      addDebugLog('Microphone activated');
-      // Stop the stream immediately as we don't need to use it directly
-      stream.getTracks().forEach(track => track.stop());
-      // Connect WebSocket
-      connectWebSocket();
+      await connectWebSocket();
+      if (wsRef.current) {
+        wsRef.current.micStream = stream;
+        setIsMicrophoneActive(true);
+        addDebugLog('Microphone activated and WebSocket connected');
+      } else {
+        throw new Error('WebSocket connection failed');
+      }
     } catch (error) {
-      setError('Error activating microphone');
+      setError(`Error activating microphone: ${error.message}`);
       addDebugLog(`Error activating microphone: ${error.message}`);
     }
   }, [connectWebSocket, addDebugLog, setError]);
 
+  const deactivateMicrophone = useCallback(() => {
+    if (wsRef.current && wsRef.current.micStream) {
+      wsRef.current.micStream.getTracks().forEach(track => track.stop());
+      wsRef.current.micStream = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    setIsMicrophoneActive(false);
+    setStatus('Disconnected');
+    addDebugLog('Microphone deactivated and WebSocket disconnected');
+  }, [addDebugLog]);
+
   const toggleMicrophone = useCallback(() => {
     if (isMicrophoneActive) {
-      // Disconnect WebSocket
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      setIsMicrophoneActive(false);
-      addDebugLog('Microphone deactivated');
+      deactivateMicrophone();
     } else {
       activateMicrophone();
     }
-  }, [isMicrophoneActive, activateMicrophone, addDebugLog]);
+  }, [isMicrophoneActive, activateMicrophone, deactivateMicrophone]);
 
   useEffect(() => {
     getAudioDevices();
-    // Remove the initial calls to connectWebSocket and activateMicrophone
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      deactivateMicrophone();
     };
-  }, []);
+  }, [deactivateMicrophone]);
 
   useEffect(() => {
     if (originalRef.current) {
