@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import UserTranscriptionView from './UserTranscriptionView';
 
@@ -17,21 +17,36 @@ const TranscriptionApp = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('ja');
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
+  const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);
 
   const wsRef = useRef(null);
   const originalRef = useRef(null);
   const translatedRef = useRef(null);
   const debugLogsRef = useRef(null);
 
+  const activateMicrophone = useCallback(async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setIsMicrophoneActive(true);
+      addDebugLog('Microphone activated');
+      // Stop the stream immediately as we don't need to use it directly
+      stream.getTracks().forEach(track => track.stop());
+    } catch (error) {
+      setError('Error activating microphone');
+      addDebugLog(`Error activating microphone: ${error.message}`);
+    }
+  }, []);
+
   useEffect(() => {
     connectWebSocket();
     getAudioDevices();
+    activateMicrophone();
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
       }
     };
-  }, []);
+  }, [activateMicrophone]);
 
   useEffect(() => {
     if (originalRef.current) {
@@ -133,6 +148,7 @@ const TranscriptionApp = () => {
       <h1 className="text-2xl font-bold mb-4">Real-time Transcription and Translation</h1>
       <div className="mb-4 flex items-center">
         <span className="mr-4">Status: {status}</span>
+        <span className="mr-4">Microphone: {isMicrophoneActive ? 'Active' : 'Inactive'}</span>
         {status === 'Disconnected' && (
           <button 
             onClick={handleReconnect} 
