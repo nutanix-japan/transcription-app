@@ -103,11 +103,21 @@ const TranscriptionApp = () => {
 
   const toggleMicrophone = useCallback(() => {
     if (isMicrophoneActive) {
-      deactivateMicrophone();
+      // Disconnect WebSocket
+      if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({ type: 'mute' }));
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setIsMicrophoneActive(false);
+      addDebugLog('Microphone deactivated');
     } else {
       activateMicrophone();
+      if (wsRef.current) {
+        wsRef.current.send(JSON.stringify({ type: 'unmute' }));
+      }
     }
-  }, [isMicrophoneActive, activateMicrophone, deactivateMicrophone]);
+  }, [isMicrophoneActive, activateMicrophone, addDebugLog]);
 
   useEffect(() => {
     getAudioDevices();
@@ -254,7 +264,7 @@ const App = () => {
     <Router>
       <Routes>
         <Route path="/" element={<TranscriptionApp />} />
-        <Route path="/user" element={<UserTranscriptionView />} />
+        <Route path="/user" element={<UserTranscriptionView key={Date.now()} />} />
       </Routes>
     </Router>
   );

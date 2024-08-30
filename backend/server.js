@@ -50,9 +50,11 @@ wss.on('connection', (ws, req) => {
   let lastAudioSentTimestamp = 0;
   let currentLanguage = 'ja'; // Default to Japanese
   let isReceivingAudio = false;
+  let isMuted = false;
+  let isWebSocketClosed = false;
 
   const setupDeepgram = () => {
-    if (isDeepgramConnected) return;
+    if (isDeepgramConnected || isWebSocketClosed) return;
 
     const deepgram = createClient(process.env.DEEPGRAM_API_KEY);
 
@@ -68,10 +70,15 @@ wss.on('connection', (ws, req) => {
       encoding: "linear16",
       channels: 1,
       sample_rate: 16000,
-      endpointing: 300,
+      endpointing: 300
     });
 
     deepgramConnection.addListener(LiveTranscriptionEvents.Open, () => {
+      if (isWebSocketClosed) {
+        console.log("WebSocket closed, closing Deepgram connection");
+        deepgramConnection.finish();
+        return;
+      }
       console.log("Deepgram connection opened.");
       sendDebugToClient(ws, "Deepgram connection opened");
       isDeepgramConnected = true;
@@ -120,11 +127,12 @@ wss.on('connection', (ws, req) => {
       isDeepgramConnected = false;
       ws.send(JSON.stringify({ type: 'status', data: 'Disconnected' }));
       
-      // Attempt to reconnect to Deepgram
-      setTimeout(() => {
-        sendDebugToClient(ws, 'Attempting to reconnect to Deepgram...');
-        setupDeepgram();
-      }, 5000);
+      if (!isWebSocketClosed && ws.readyState === WebSocket.OPEN) {
+        setTimeout(() => {
+          sendDebugToClient(ws, 'Attempting to reconnect to Deepgram...');
+          setupDeepgram();
+        }, 5000);
+      }
     });
 
     deepgramConnection.addListener('error', (error) => {
@@ -138,6 +146,11 @@ wss.on('connection', (ws, req) => {
       rate: '16000',
       channels: '1',
       debug: false,
+      channels: 1,
+      interim_results: false,
+      punctuate: true,
+      sample_rate: 16000,
+      endpointing: 300,
       exitOnSilence: 6
     });
 
@@ -181,11 +194,7 @@ wss.on('connection', (ws, req) => {
       currentLanguage = data.language;
       sendDebugToClient(ws, `Language set to: ${supportedLanguages[currentLanguage]}`);
     } else if (data.type === 'audioData') {
-      if (!isReceivingAudio) {
-        isReceivingAudio = true;
-        setupDeepgram();
-      }
-      if (isDeepgramConnected && deepgramConnection.getReadyState() === WebSocket.OPEN) {
+      if (!isMuted && isDeepgramConnected && deepgramConnection.getReadyState() === WebSocket.OPEN) {
         deepgramConnection.send(data.audio);
         totalAudioBytesSent += data.audio.length;
         const now = Date.now();
@@ -194,12 +203,19 @@ wss.on('connection', (ws, req) => {
           lastAudioSentTimestamp = now;
         }
       }
+    } else if (data.type === 'mute') {
+      isMuted = true;
+      sendDebugToClient(ws, 'Client is muted, stopping audio data transmission.');
+    } else if (data.type === 'unmute') {
+      isMuted = false;
+      sendDebugToClient(ws, 'Client is unmuted, resuming audio data transmission.');
     }
-  });
+  });  
 
   ws.on('close', () => {
     console.log('WebSocket connection closed');
     sendDebugToClient(ws, 'WebSocket connection closed');
+    isWebSocketClosed = true;
     if (micInstance) {
       micInstance.stop();
       sendDebugToClient(ws, 'Microphone stopped');
