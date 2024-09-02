@@ -18,6 +18,7 @@ const TranscriptionApp = () => {
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
   const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);
+  const [isDebugLogsVisible, setIsDebugLogsVisible] = useState(false);
 
   const wsRef = useRef(null);
   const originalRef = useRef(null);
@@ -187,6 +188,10 @@ const TranscriptionApp = () => {
     }
   };
 
+  const toggleDebugLogs = () => {
+    setIsDebugLogsVisible(!isDebugLogsVisible);
+  };
+
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Real-time Transcription and Translation</h1>
@@ -225,7 +230,7 @@ const TranscriptionApp = () => {
       )}
       <div className="flex space-x-4 mb-4">
         <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={originalRef}>
-          <h2 className="text-xl font-semibold mb-2 rounded">Original Transcription</h2>
+          <h2 className="text-l font-semibold mb-2 rounded">Original Transcription</h2>
           {transcriptions.length > 0 ? (
             transcriptions.map((t, index) => (
               <div key={index} className="mb-2">
@@ -237,7 +242,7 @@ const TranscriptionApp = () => {
           )}
         </div>
         <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={translatedRef}>
-          <h2 className="text-xl font-semibold mb-2 rounded">Translation ({supportedLanguages[selectedLanguage]})</h2>
+          <h2 className="text-l font-semibold mb-2 rounded">Translation ({supportedLanguages[selectedLanguage]})</h2>
           {transcriptions.length > 0 ? (
             transcriptions.map((t, index) => (
               <div key={index} className="mb-2">
@@ -249,11 +254,22 @@ const TranscriptionApp = () => {
           )}
         </div>
       </div>
-      <div className="border p-4 h-64 overflow-y-auto rounded" ref={debugLogsRef}>
-        <h2 className="text-xl font-semibold mb-2 rounded">Debug Logs</h2>
-        {debugLogs.map((log, index) => (
-          <div key={index} className="text-sm">{log}</div>
-        ))}
+      <div className="border rounded">
+        <button
+          onClick={toggleDebugLogs}
+          className="w-full text-left p-4 bg-black hover:bg-black focus:outline-none"
+        >
+          <h2 className="text-l font-semibold">
+            Debug Logs {isDebugLogsVisible ? '▼' : '▶'}
+          </h2>
+        </button>
+        {isDebugLogsVisible && (
+          <div className="p-4 h-64 overflow-y-auto" ref={debugLogsRef}>
+            {debugLogs.map((log, index) => (
+              <div key={index} className="text-sm">{log}</div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
