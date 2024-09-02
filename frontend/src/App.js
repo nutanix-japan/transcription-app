@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'; // Import Navigate
 import UserTranscriptionView from './UserTranscriptionView';
 
 const supportedLanguages = {
@@ -276,11 +276,14 @@ const TranscriptionApp = () => {
 };
 
 const App = () => {
+  const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);
+
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<TranscriptionApp />} />
-        <Route path="/user" element={<UserTranscriptionView key={Date.now()} />} />
+        <Route path="/" element={<Navigate to="/admin" />} />
+        <Route path="/admin" element={<TranscriptionApp />} />
+        <Route path="/user" element={<UserTranscriptionView key={Date.now()} isMicrophoneActive={isMicrophoneActive} />} />
       </Routes>
     </Router>
   );
