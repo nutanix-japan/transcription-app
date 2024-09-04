@@ -1,6 +1,13 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom'; // Import Navigate
 import UserTranscriptionView from './UserTranscriptionView';
+import { Button } from "./components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible"
+import { ChevronDown } from "lucide-react"
 
 const supportedLanguages = {
   'ja': '日本語',
@@ -198,79 +205,93 @@ const TranscriptionApp = () => {
       <div className="mb-4 flex items-center">
         <span className="mr-4">Status: {status}</span>
         <span className="mr-4">Microphone: {isMicrophoneActive ? 'Active' : 'Inactive'}</span>
-        <button 
+        <Button 
           onClick={toggleMicrophone} 
-          className={`px-4 py-2 ${isMicrophoneActive ? 'bg-red-500' : 'bg-green-500'} text-white rounded hover:opacity-80`}
+          variant={isMicrophoneActive ? "destructive" : "default"}
         >
           {isMicrophoneActive ? 'Mute Microphone' : 'Unmute Microphone'}
-        </button>
-        <select 
-          value={selectedLanguage} 
-          onChange={handleLanguageChange}
-          className="ml-auto px-4 py-2 text-black border rounded"
-        >
-          {Object.entries(supportedLanguages).map(([code, name]) => (
-            <option key={code} value={code}>{name}</option>
-          ))}
-        </select>
-        <select 
-          value={selectedDevice} 
-          onChange={handleDeviceChange}
-          className="ml-4 px-4 py-2 text-black border rounded"
-        >
-          {audioDevices.map((device) => (
-            <option key={device.deviceId} value={device.deviceId}>{device.label || `Microphone ${device.deviceId}`}</option>
-          ))}
-        </select>
+        </Button>
+        <Select value={selectedLanguage} onValueChange={handleLanguageChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select language" />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(supportedLanguages).map(([code, name]) => (
+              <SelectItem key={code} value={code}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedDevice} onValueChange={handleDeviceChange}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Select device" />
+          </SelectTrigger>
+          <SelectContent>
+            {audioDevices.map((device) => (
+              <SelectItem key={device.deviceId} value={device.deviceId}>
+                {device.label || `Microphone ${device.deviceId}`}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
       {error && (
-        <div className="mb-4 text-red-500">
-          Error: {error}
-        </div>
+        <Alert variant="destructive">
+          <AlertDescription>Error: {error}</AlertDescription>
+        </Alert>
       )}
       <div className="flex space-x-4 mb-4">
-        <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={originalRef}>
-          <h2 className="text-l font-semibold mb-2 rounded">Original Transcription</h2>
-          {transcriptions.length > 0 ? (
-            transcriptions.map((t, index) => (
-              <div key={index} className="mb-2">
-                <p>{t.original || 'N/A'}</p>
-              </div>
-            ))
-          ) : (
-            'Waiting for transcription...'
-          )}
-        </div>
-        <div className="flex-1 border p-4 h-64 overflow-y-auto rounded" ref={translatedRef}>
-          <h2 className="text-l font-semibold mb-2 rounded">Translation ({supportedLanguages[selectedLanguage]})</h2>
-          {transcriptions.length > 0 ? (
-            transcriptions.map((t, index) => (
-              <div key={index} className="mb-2">
-                <p>{t.translated || 'N/A'}</p>
-              </div>
-            ))
-          ) : (
-            'Waiting for translation...'
-          )}
-        </div>
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle>Original Transcription</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px]" ref={originalRef}>
+              {transcriptions.length > 0 ? (
+                transcriptions.map((t, index) => (
+                  <div key={index} className="mb-2">
+                    <p>{t.original || 'N/A'}</p>
+                  </div>
+                ))
+              ) : (
+                'Waiting for transcription...'
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+        <Card className="flex-1">
+          <CardHeader>
+            <CardTitle>Translation ({supportedLanguages[selectedLanguage]})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[200px]" ref={translatedRef}>
+              {transcriptions.length > 0 ? (
+                transcriptions.map((t, index) => (
+                  <div key={index} className="mb-2">
+                    <p>{t.translated || 'N/A'}</p>
+                  </div>
+                ))
+              ) : (
+                'Waiting for translation...'
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
-      <div className="border rounded">
-        <button
-          onClick={toggleDebugLogs}
-          className="w-full text-left p-4 bg-black hover:bg-black focus:outline-none"
-        >
-          <h2 className="text-l font-semibold">
-            Debug Logs {isDebugLogsVisible ? '▼' : '▶'}
-          </h2>
-        </button>
-        {isDebugLogsVisible && (
-          <div className="p-4 h-64 overflow-y-auto" ref={debugLogsRef}>
+      <Collapsible>
+        <CollapsibleTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            Debug Logs
+            <ChevronDown className="h-4 w-4" />
+          </Button>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <ScrollArea className="h-[200px] mt-2" ref={debugLogsRef}>
             {debugLogs.map((log, index) => (
               <div key={index} className="text-sm">{log}</div>
             ))}
-          </div>
-        )}
-      </div>
+          </ScrollArea>
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 };
