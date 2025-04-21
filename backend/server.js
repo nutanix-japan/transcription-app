@@ -42,7 +42,7 @@ const supportedLanguages = {
 wss.on('connection', (ws, req) => {
   console.log('New WebSocket connection');
   sendDebugToClient(ws, 'New WebSocket connection established');
-  
+
   let deepgramConnection;
   let micInstance;
   let isDeepgramConnected = false;
@@ -60,10 +60,11 @@ wss.on('connection', (ws, req) => {
 
     console.log("Creating Deepgram connection...");
     sendDebugToClient(ws, "Creating Deepgram connection...");
-    
+
     deepgramConnection = deepgram.listen.live({
       model: "nova-2",
-      language: "en-US",
+      language: "ja",
+      // detect_language: true,
       smart_format: true,
       interim_results: false,
       punctuate: true,
@@ -88,17 +89,17 @@ wss.on('connection', (ws, req) => {
         const transcript = data.channel.alternatives[0].transcript;
         sendDebugToClient(ws, `Raw transcript data: ${JSON.stringify(data)}`);
         sendDebugToClient(ws, `Extracted transcript: ${transcript}`);
-        
+
         if (transcript && transcript.trim() !== '') {
           sendDebugToClient(ws, `Received non-empty transcript: ${transcript}`);
-          
+
           try {
             const result = await translator.translateText(transcript, null, currentLanguage);
             sendDebugToClient(ws, `Translated text: ${result.text}`);
-            ws.send(JSON.stringify({ 
-              type: 'transcript', 
-              data: { 
-                original: transcript, 
+            ws.send(JSON.stringify({
+              type: 'transcript',
+              data: {
+                original: transcript,
                 translated: result.text,
                 language: supportedLanguages[currentLanguage]
               }
@@ -126,7 +127,7 @@ wss.on('connection', (ws, req) => {
       sendDebugToClient(ws, 'Deepgram connection closed');
       isDeepgramConnected = false;
       ws.send(JSON.stringify({ type: 'status', data: 'Disconnected' }));
-      
+
       if (!isWebSocketClosed && ws.readyState === WebSocket.OPEN) {
         setTimeout(() => {
           sendDebugToClient(ws, 'Attempting to reconnect to Deepgram...');
@@ -167,7 +168,7 @@ wss.on('connection', (ws, req) => {
         }
       } else {
         sendDebugToClient(ws, `Microphone data received, but Deepgram connection is not open. Ready state: ${deepgramConnection ? deepgramConnection.getReadyState() : 'undefined'}, isDeepgramConnected: ${isDeepgramConnected}`);
-        
+
         // If Deepgram is not connected, attempt to reconnect
         if (!isDeepgramConnected) {
           sendDebugToClient(ws, 'Attempting to reconnect to Deepgram...');
@@ -210,7 +211,7 @@ wss.on('connection', (ws, req) => {
       isMuted = false;
       sendDebugToClient(ws, 'Client is unmuted, resuming audio data transmission.');
     }
-  });  
+  });
 
   ws.on('close', () => {
     console.log('WebSocket connection closed');

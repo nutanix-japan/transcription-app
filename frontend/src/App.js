@@ -4,6 +4,7 @@ import UserTranscriptionView from './UserTranscriptionView';
 
 const supportedLanguages = {
   'ja': '日本語',
+  'en': 'English',
   'ko': 'Korean',
   'ZH-HANT': 'Chinese (Traditional)',
   'es': 'Spanish'
@@ -198,14 +199,14 @@ const TranscriptionApp = () => {
       <div className="mb-4 flex items-center">
         <span className="mr-4">Status: {status}</span>
         <span className="mr-4">Microphone: {isMicrophoneActive ? 'Active' : 'Inactive'}</span>
-        <button 
-          onClick={toggleMicrophone} 
+        <button
+          onClick={toggleMicrophone}
           className={`px-4 py-2 ${isMicrophoneActive ? 'bg-red-500' : 'bg-green-500'} text-white rounded hover:opacity-80`}
         >
           {isMicrophoneActive ? 'Mute Microphone' : 'Unmute Microphone'}
         </button>
-        <select 
-          value={selectedLanguage} 
+        <select
+          value={selectedLanguage}
           onChange={handleLanguageChange}
           className="ml-auto px-4 py-2 text-black border rounded"
         >
@@ -213,8 +214,8 @@ const TranscriptionApp = () => {
             <option key={code} value={code}>{name}</option>
           ))}
         </select>
-        <select 
-          value={selectedDevice} 
+        <select
+          value={selectedDevice}
           onChange={handleDeviceChange}
           className="ml-4 px-4 py-2 text-black border rounded"
         >
