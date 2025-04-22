@@ -11,6 +11,7 @@ const UserTranscriptionView = () => {
 
     const supportedLanguages = {
         'ja': '日本語',
+        'en': 'English',
         'ko': 'Korean',
         'ZH-HANT': 'Chinese (Traditional)',
         'es': 'Spanish'
