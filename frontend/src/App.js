@@ -3,8 +3,8 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import UserTranscriptionView from './UserTranscriptionView';
 
 const supportedLanguages = {
-  'ja': '日本語',
   'en': 'English',
+  'ja': '日本語',
   'ko': '한국어',
   'ZH-HANT': '繁體中文',
   'es': 'Español'
@@ -15,7 +15,7 @@ const TranscriptionApp = () => {
   const [status, setStatus] = useState('Disconnected');
   const [error, setError] = useState(null);
   const [debugLogs, setDebugLogs] = useState([]);
-  const [selectedLanguage, setSelectedLanguage] = useState('ja');
+  const [selectedLanguage, setSelectedLanguage] = useState('en');
   const [audioDevices, setAudioDevices] = useState([]);
   const [selectedDevice, setSelectedDevice] = useState('');
   const [isMicrophoneActive, setIsMicrophoneActive] = useState(false);

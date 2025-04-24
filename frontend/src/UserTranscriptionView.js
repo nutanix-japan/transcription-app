@@ -4,17 +4,17 @@ const UserTranscriptionView = () => {
     const [transcriptions, setTranscriptions] = useState([]);
     const [status, setStatus] = useState('Disconnected');
     const [error, setError] = useState(null);
-    const [selectedLanguage, setSelectedLanguage] = useState('ja');
+    const [selectedLanguage, setSelectedLanguage] = useState('en');
     const wsRef = useRef(null);
     const originalRef = useRef(null);
     const translatedRef = useRef(null);
 
     const supportedLanguages = {
-        'ja': '日本語',
+        // 'ja': '日本語',
         'en': 'English',
-        'ko': 'Korean',
-        'ZH-HANT': 'Chinese (Traditional)',
-        'es': 'Spanish'
+        // 'ko': 'Korean',
+        // 'ZH-HANT': 'Chinese (Traditional)',
+        // 'es': 'Spanish'
     };
 
     useEffect(() => {

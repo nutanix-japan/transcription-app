@@ -60,7 +60,7 @@ wss.on('connection', (ws, req) => {
   let isDeepgramConnected = false;
   let totalAudioBytesSent = 0;
   let lastAudioSentTimestamp = 0;
-  let currentLanguage = 'ja'; // Default to Japanese
+  let currentLanguage = 'en'; // Default to Japanese
   let isReceivingAudio = false;
   let isMuted = false;
   let isWebSocketClosed = false;
@@ -75,7 +75,9 @@ wss.on('connection', (ws, req) => {
 
     deepgramConnection = deepgram.listen.live({
       model: "nova-2",
-      language: "ja",
+      // language: "ja",
+      // language: "ko",
+      language: "zh-TW",
       // detect_language: true,
       smart_format: true,
       interim_results: false,
