@@ -59,11 +59,11 @@ typings/
 # dotenv environment variables file
 .env
 .env.test
-/backend/.env
+backend/.env
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
-/backend/.cache
+backend/.cache
 
 # next.js build output
 .next
